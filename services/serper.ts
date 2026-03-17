@@ -1,4 +1,6 @@
 
+import { trackUsage } from "./usageService";
+
 export interface SerperResult {
   title: string;
   link: string;
@@ -55,6 +57,7 @@ export async function searchSerper(query: string): Promise<SerperResult[]> {
       }
 
       const data = await response.json();
+      trackUsage('serper');
       return data.organic || [];
     } catch (error) {
       lastError = error;

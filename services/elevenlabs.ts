@@ -1,4 +1,6 @@
 
+import { trackUsage } from "./usageService";
+
 const getApiKeys = (): string[] => {
   const stored = localStorage.getItem('nexus_elevenlabs_keys');
   if (stored) {
@@ -67,6 +69,8 @@ export async function synthesizeElevenLabs(text: string, voiceId: string): Promi
       const arrayBuffer = await response.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       
+      trackUsage('elevenlabs');
+
       let binary = '';
       const len = bytes.byteLength;
       for (let i = 0; i < len; i++) {

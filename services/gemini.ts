@@ -2,6 +2,7 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { Lead, SearchMode } from "../types";
 import { searchSerper } from "./serper";
+import { trackUsage } from "./usageService";
 
 /**
  * Maps Internal names to Gemini Prebuilt voices
@@ -179,6 +180,10 @@ export const searchLeadsWithGemini = async (
         temperature: 0.1 
       },
     });
+    
+    if (isMaps) trackUsage('maps');
+    else trackUsage('gemini');
+    
     const text = response.text || "";
     
     let leads = parseLeadsFromMarkdown(text, response.candidates?.[0]?.groundingMetadata?.groundingChunks || []);
@@ -317,7 +322,7 @@ export const generateStrategicDossier = async (leads: Lead[]): Promise<string> =
       contents: prompt,
       config: { temperature: 0.2 },
     });
-
+    trackUsage('gemini');
     return response.text || "Failed to assemble dossier.";
   });
 };
@@ -344,6 +349,7 @@ export const synthesizeSpeech = async (text: string, voiceName: string): Promise
         },
       },
     });
+    trackUsage('gemini');
     
     const candidate = response.candidates?.[0];
     if (!candidate) throw new Error("No candidates returned");
@@ -390,6 +396,7 @@ export const analyzeCallOutcome = async (lead: Lead, transcript: string): Promis
         }
       }
     });
+    trackUsage('gemini');
     const text = response.text || "{}";
     return JSON.parse(text.replace(/```json|```/g, '').trim());
   });
@@ -449,6 +456,7 @@ export const analyzeScriptEffectiveness = async (script: string): Promise<string
       contents: prompt,
       config: { temperature: 0.7 },
     });
+    trackUsage('gemini');
     return response.text || "Analysis timed out.";
   });
 };
