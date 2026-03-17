@@ -1,0 +1,8 @@
+{
+  "name": "Nexus Leads AI",
+  "description": "A next-generation lead generation platform powered by Gemini. Find leads via Google Search, export data, and engage in real-time AI voice conversations.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "name": "copy-of-copy-of-nexus-leads-ai",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "^1.33.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "africastalking": "^0.7.9",
+    "autoprefixer": "^10.4.20",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "lucide-react": "^0.560.0",
+    "postcss": "^8.5.3",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.21.0",
+    "twilio": "^5.13.0",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.14.0",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
