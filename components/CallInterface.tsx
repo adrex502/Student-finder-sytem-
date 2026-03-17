@@ -219,7 +219,8 @@ const CallInterface: React.FC<CallInterfaceProps> = ({
     setIsConnecting(true);
     setConnectionStatus('Initializing neural bridge...');
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    const geminiKey = localStorage.getItem('nexus_gemini_key');
+    const apiKey = geminiKey || process.env.GEMINI_API_KEY || process.env.API_KEY;
     if (!apiKey) {
       setErrorMessage("API key is missing. Please authorize in Settings.");
       setIsConnecting(false);
@@ -455,7 +456,8 @@ const CallInterface: React.FC<CallInterfaceProps> = ({
   };
 
   const simulateConversation = async (lead: Lead, instructions: string) => {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    const geminiKey = localStorage.getItem('nexus_gemini_key');
+    const apiKey = geminiKey || process.env.GEMINI_API_KEY || process.env.API_KEY;
     const ai = new GoogleGenAI({ apiKey: apiKey! });
     
     const prompt = `
@@ -567,13 +569,13 @@ const CallInterface: React.FC<CallInterfaceProps> = ({
                 <div className="text-[10px] font-black uppercase text-emerald-500 tracking-[0.2em]">Neural Link Ready</div>
               </button>
 
-              <button 
+              <div 
                 onClick={() => {
                   setMode('selection');
                   // This will show the manual entry or campaign browser
                   alert("Select a lead or enter a number below to initiate a real phone call.");
                 }}
-                className="w-full p-10 bg-slate-900 border-2 border-slate-900 rounded-[2.5rem] hover:bg-black hover:shadow-xl transition-all flex flex-col items-center text-center space-y-6 group active:scale-95 text-white"
+                className="w-full p-10 bg-slate-900 border-2 border-slate-900 rounded-[2.5rem] hover:bg-black hover:shadow-xl transition-all flex flex-col items-center text-center space-y-6 group cursor-pointer text-white"
               >
                 <div className="w-20 h-20 bg-emerald-500 text-slate-900 rounded-3xl flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.3)]">
                   <PhoneCall className="w-10 h-10" />
@@ -600,7 +602,7 @@ const CallInterface: React.FC<CallInterfaceProps> = ({
 
                 <div className="w-full h-px bg-white/10"></div>
                 <div className="text-[10px] font-black uppercase text-emerald-400 tracking-[0.2em]">{telephonyProvider === 'twilio' ? 'Twilio Protocol Active' : 'Africa\'s Talking Protocol'}</div>
-              </button>
+              </div>
             </div>
 
           <div className="p-10 bg-white border-2 border-slate-100 rounded-[2.5rem] space-y-6 shadow-sm">

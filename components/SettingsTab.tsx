@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Settings, ShieldCheck, Key, Lock, Sparkles, Activity, Globe, Map, Zap, RefreshCw, CheckCircle, AlertTriangle, Search, Info, Terminal, Phone } from 'lucide-react';
+import { Settings, ShieldCheck, Key, Lock, Sparkles, Activity, Globe, Map, Zap, RefreshCw, CheckCircle, AlertTriangle, Search, Info, Terminal, Phone, Mic2, Trash2, Plus } from 'lucide-react';
 import { SearchMode } from '../types';
 import { validateApiKey } from '../services/gemini';
 
@@ -13,32 +13,68 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ searchMode, setSearchMode }) 
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [checking, setChecking] = useState(true);
   const [validating, setValidating] = useState(false);
+  const [validatingEleven, setValidatingEleven] = useState(false);
+  const [validatingSerper, setValidatingSerper] = useState(false);
   const [validationResult, setValidationResult] = useState<{ valid: boolean; message: string } | null>(null);
+  const [elevenResult, setElevenResult] = useState<{ valid: boolean; message: string } | null>(null);
+  const [serperResult, setSerperResult] = useState<{ valid: boolean; message: string } | null>(null);
+  const [searchEngine, setSearchEngine] = useState<'gemini' | 'serper'>(() => {
+    return (localStorage.getItem('nexus_search_engine') as 'gemini' | 'serper') || 'gemini';
+  });
   
   // Credentials State
   const [credentials, setCredentials] = useState({
-    geminiKey: localStorage.getItem('nexus_gemini_key') || '',
+    geminiKeys: JSON.parse(localStorage.getItem('nexus_gemini_keys') || '[]'),
+    mapsApiKeys: JSON.parse(localStorage.getItem('nexus_maps_api_keys') || '[]'),
+    elevenLabsKeys: JSON.parse(localStorage.getItem('nexus_elevenlabs_keys') || '[]'),
+    serperKeys: JSON.parse(localStorage.getItem('nexus_serper_keys') || '[]'),
     twilioSid: localStorage.getItem('nexus_twilio_sid') || '',
     twilioToken: localStorage.getItem('nexus_twilio_token') || '',
     twilioPhone: localStorage.getItem('nexus_twilio_phone') || '',
     atUsername: localStorage.getItem('nexus_at_username') || '',
     atApiKey: localStorage.getItem('nexus_at_api_key') || '',
     atPhone: localStorage.getItem('nexus_at_phone') || '',
-    mapsApiKey: localStorage.getItem('nexus_maps_api_key') || '',
   });
+
+  // Handle legacy single keys
+  useEffect(() => {
+    const legacyGemini = localStorage.getItem('nexus_gemini_key');
+    if (legacyGemini && credentials.geminiKeys.length === 0) {
+      updateCredentialList('geminiKeys', [legacyGemini]);
+      localStorage.removeItem('nexus_gemini_key');
+    }
+    const legacyMaps = localStorage.getItem('nexus_maps_api_key');
+    if (legacyMaps && credentials.mapsApiKeys.length === 0) {
+      updateCredentialList('mapsApiKeys', [legacyMaps]);
+      localStorage.removeItem('nexus_maps_api_key');
+    }
+    const legacyEleven = localStorage.getItem('nexus_elevenlabs_key');
+    if (legacyEleven && credentials.elevenLabsKeys.length === 0) {
+      updateCredentialList('elevenLabsKeys', [legacyEleven]);
+      localStorage.removeItem('nexus_elevenlabs_key');
+    }
+    const legacySerper = localStorage.getItem('nexus_serper_key');
+    if (legacySerper && credentials.serperKeys.length === 0) {
+      updateCredentialList('serperKeys', [legacySerper]);
+      localStorage.removeItem('nexus_serper_key');
+    }
+  }, []);
 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
   const handleSaveCredentials = () => {
     setSaveStatus('saving');
-    localStorage.setItem('nexus_gemini_key', credentials.geminiKey);
+    localStorage.setItem('nexus_gemini_keys', JSON.stringify(credentials.geminiKeys));
+    localStorage.setItem('nexus_maps_api_keys', JSON.stringify(credentials.mapsApiKeys));
+    localStorage.setItem('nexus_elevenlabs_keys', JSON.stringify(credentials.elevenLabsKeys));
+    localStorage.setItem('nexus_serper_keys', JSON.stringify(credentials.serperKeys));
+    
     localStorage.setItem('nexus_twilio_sid', credentials.twilioSid);
     localStorage.setItem('nexus_twilio_token', credentials.twilioToken);
     localStorage.setItem('nexus_twilio_phone', credentials.twilioPhone);
     localStorage.setItem('nexus_at_username', credentials.atUsername);
     localStorage.setItem('nexus_at_api_key', credentials.atApiKey);
     localStorage.setItem('nexus_at_phone', credentials.atPhone);
-    localStorage.setItem('nexus_maps_api_key', credentials.mapsApiKey);
     
     setTimeout(() => {
       setSaveStatus('saved');
@@ -48,6 +84,28 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ searchMode, setSearchMode }) 
 
   const updateCredential = (key: keyof typeof credentials, value: string) => {
     setCredentials(prev => ({ ...prev, [key]: value }));
+  };
+
+  const updateCredentialList = (key: 'geminiKeys' | 'mapsApiKeys' | 'elevenLabsKeys' | 'serperKeys', list: string[]) => {
+    setCredentials(prev => ({ ...prev, [key]: list }));
+  };
+
+  const deleteCredential = (key: keyof typeof credentials) => {
+    if (Array.isArray(credentials[key])) {
+      updateCredentialList(key as any, []);
+      localStorage.removeItem(`nexus_${(key as string).toLowerCase().replace('keys', '_keys')}`);
+    } else {
+      setCredentials(prev => ({ ...prev, [key]: '' }));
+      const storageKey = `nexus_${(key as string).toLowerCase().replace('key', '_key')}`;
+      localStorage.removeItem(storageKey);
+      // Special cases for non-key fields
+      if (key === 'twilioSid') localStorage.removeItem('nexus_twilio_sid');
+      if (key === 'twilioToken') localStorage.removeItem('nexus_twilio_token');
+      if (key === 'twilioPhone') localStorage.removeItem('nexus_twilio_phone');
+      if (key === 'atUsername') localStorage.removeItem('nexus_at_username');
+      if (key === 'atApiKey') localStorage.removeItem('nexus_at_api_key');
+      if (key === 'atPhone') localStorage.removeItem('nexus_at_phone');
+    }
   };
 
   useEffect(() => {
@@ -74,16 +132,79 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ searchMode, setSearchMode }) 
     }
   };
 
-  const handleValidate = async () => {
+  const handleValidate = async (key?: string) => {
     setValidating(true);
     setValidationResult(null);
     try {
-      const result = await validateApiKey();
+      const result = await validateApiKey(key);
       setValidationResult(result);
     } catch (error) {
       setValidationResult({ valid: false, message: "An unexpected error occurred during validation." });
     } finally {
       setValidating(false);
+    }
+  };
+
+  const handleValidateEleven = async (key?: string) => {
+    setValidatingEleven(true);
+    setElevenResult(null);
+    const keyToValidate = key || credentials.elevenLabsKeys[0];
+    try {
+      const response = await fetch('https://api.elevenlabs.io/v1/user', {
+        headers: { 'xi-api-key': keyToValidate }
+      });
+      if (response.ok) {
+        setElevenResult({ valid: true, message: "ElevenLabs key is active." });
+      } else {
+        setElevenResult({ valid: false, message: "Invalid ElevenLabs API key." });
+      }
+    } catch (e) {
+      setElevenResult({ valid: false, message: "Connection error." });
+    } finally {
+      setValidatingEleven(false);
+    }
+  };
+
+  const handleValidateSerper = async (key?: string) => {
+    setValidatingSerper(true);
+    setSerperResult(null);
+    const keyToValidate = key || credentials.serperKeys[0];
+    try {
+      const response = await fetch('https://google.serper.dev/search', {
+        method: 'POST',
+        headers: { 
+          'X-API-KEY': keyToValidate,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ q: 'test' })
+      });
+      if (response.ok) {
+        setSerperResult({ valid: true, message: "Serper key is active." });
+      } else {
+        setSerperResult({ valid: false, message: "Invalid Serper API key." });
+      }
+    } catch (e) {
+      setSerperResult({ valid: false, message: "Connection error." });
+    } finally {
+      setValidatingSerper(false);
+    }
+  };
+
+  const [validatingMaps, setValidatingMaps] = useState(false);
+  const [mapsResult, setMapsResult] = useState<{ valid: boolean; message: string } | null>(null);
+
+  const handleValidateMaps = async (key?: string) => {
+    setValidatingMaps(true);
+    setMapsResult(null);
+    const keyToValidate = key || credentials.mapsApiKeys[0];
+    try {
+      if (keyToValidate?.startsWith('AIza')) {
+        setMapsResult({ valid: true, message: "Maps key format looks correct." });
+      } else {
+        setMapsResult({ valid: false, message: "Invalid Maps API key format." });
+      }
+    } finally {
+      setValidatingMaps(false);
     }
   };
 
@@ -105,130 +226,26 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ searchMode, setSearchMode }) 
         <StatusCard icon={Globe} label="Web Search" status={searchMode === SearchMode.WEB ? 'Active' : 'Standby'} color={searchMode === SearchMode.WEB ? 'emerald' : 'slate'} />
       </div>
 
-      <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-10">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <ShieldCheck className="w-8 h-8 text-emerald-600" />
-              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">API & Neural Bridges</h2>
-            </div>
-            {isAuthorized && (
-              <button 
-                onClick={handleValidate}
-                disabled={validating}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3 h-3 ${validating ? 'animate-spin' : ''}`} />
-                {validating ? 'Validating...' : 'Validate Connection'}
-              </button>
-            )}
+      <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm space-y-12">
+        {/* Header with Save Button */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <ShieldCheck className="w-8 h-8 text-emerald-600" />
+            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">API Management</h2>
           </div>
-          
-          <div className="bg-slate-950 rounded-[2.5rem] p-10 text-white relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-              <Sparkles className="w-32 h-32" />
-            </div>
-            
-            <div className="relative z-10 space-y-6">
-              <div className="flex items-center gap-3">
-                <div className={`w-3 h-3 rounded-full animate-pulse ${isAuthorized ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  {isAuthorized ? 'Neural Authentication Locked' : 'Authentication Required'}
-                </span>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <h3 className="text-3xl font-black tracking-tight leading-tight">Gemini Neural Engine</h3>
-                  <p className="text-sm font-medium text-slate-400 max-w-md leading-relaxed">
-                    Connect your Google Cloud project to unlock high-fidelity voice synthesis and strategic lead scouting.
-                  </p>
-                </div>
-
-                <div className="pt-2">
-                  <InputGroup 
-                    label="Manual API Key (Override)" 
-                    value={credentials.geminiKey} 
-                    onChange={(v) => updateCredential('geminiKey', v)} 
-                    placeholder="AIza..." 
-                    type="password"
-                  />
-                  <p className="text-[9px] font-bold text-slate-500 uppercase mt-2">
-                    Or use the secure bridge below for platform-managed keys.
-                  </p>
-                </div>
-              </div>
-
-              {validationResult && (
-                <div className={`p-4 rounded-2xl border flex items-start gap-3 animate-in slide-in-from-top-2 duration-300 ${validationResult.valid ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                  {validationResult.valid ? <CheckCircle className="w-5 h-5 shrink-0" /> : <AlertTriangle className="w-5 h-5 shrink-0" />}
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-widest leading-none mb-1">
-                      {validationResult.valid ? 'Validation Success' : 'Validation Failed'}
-                    </p>
-                    <p className="text-[10px] font-medium opacity-80">{validationResult.message}</p>
-                  </div>
-                </div>
-              )}
-              
-              <div className="pt-4 flex flex-col sm:flex-row gap-4">
-                <button 
-                  onClick={handleAuthorize}
-                  className="px-10 h-16 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-3"
-                >
-                  <Key className="w-5 h-5" />
-                  {isAuthorized ? 'Update Auth Link' : 'Authorize Bridge'}
-                </button>
-                <a 
-                  href="https://ai.google.dev/gemini-api/docs/billing" 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="px-8 h-16 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center border border-white/10"
-                >
-                  Billing Docs
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-          <div className="p-8 bg-slate-50 rounded-[2rem] space-y-4 border border-slate-100">
-            <Search className="w-6 h-6 text-emerald-600" />
-            <h4 className="text-xs font-black uppercase tracking-widest text-slate-900">Default Search Protocol</h4>
-            <div className="flex flex-col gap-2">
-              <button 
-                onClick={() => setSearchMode(SearchMode.WEB)}
-                className={`flex items-center justify-between p-4 rounded-xl border transition-all ${searchMode === SearchMode.WEB ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-200'}`}
-              >
-                <div className="flex items-center gap-3">
-                  <Globe className="w-4 h-4" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Web Search Grounding</span>
-                </div>
-                {searchMode === SearchMode.WEB && <CheckCircle className="w-4 h-4" />}
-              </button>
-              <button 
-                onClick={() => setSearchMode(SearchMode.MAPS)}
-                className={`flex items-center justify-between p-4 rounded-xl border transition-all ${searchMode === SearchMode.MAPS ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-200'}`}
-              >
-                <div className="flex items-center gap-3">
-                  <Map className="w-4 h-4" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Google Maps API</span>
-                </div>
-                {searchMode === SearchMode.MAPS && <CheckCircle className="w-4 h-4" />}
-              </button>
-            </div>
-            <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed">
-              Web Search is free and requires no credit card. Google Maps requires a billing account.
-            </p>
-          </div>
-
-        <div className="space-y-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Key className="w-8 h-8 text-emerald-600" />
-              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Infrastructure Credentials</h2>
-            </div>
+          <div className="flex gap-3">
+            <button 
+              onClick={() => {
+                if(confirm("Are you sure you want to clear all keys?")) {
+                  Object.keys(credentials).forEach(k => deleteCredential(k as any));
+                  setSaveStatus('saved');
+                  setTimeout(() => setSaveStatus('idle'), 2000);
+                }
+              }}
+              className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-600 transition-all"
+            >
+              Clear All
+            </button>
             <button 
               onClick={handleSaveCredentials}
               disabled={saveStatus !== 'idle'}
@@ -239,130 +256,416 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ searchMode, setSearchMode }) 
               }`}
             >
               {saveStatus === 'saved' ? <CheckCircle className="w-4 h-4" /> : <RefreshCw className={`w-4 h-4 ${saveStatus === 'saving' ? 'animate-spin' : ''}`} />}
-              {saveStatus === 'saved' ? 'Config Locked' : saveStatus === 'saving' ? 'Syncing...' : 'Save Configuration'}
+              {saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving...' : 'Save All Keys'}
             </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Twilio Section */}
-            <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 text-red-600 rounded-lg">
-                  <Phone className="w-4 h-4" />
-                </div>
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Twilio (Global)</h3>
-              </div>
-              <div className="space-y-4">
-                <InputGroup 
-                  label="Account SID" 
-                  value={credentials.twilioSid} 
-                  onChange={(v) => updateCredential('twilioSid', v)} 
-                  placeholder="AC..." 
-                  type="password"
-                />
-                <InputGroup 
-                  label="Auth Token" 
-                  value={credentials.twilioToken} 
-                  onChange={(v) => updateCredential('twilioToken', v)} 
-                  placeholder="••••••••" 
-                  type="password"
-                />
-                <InputGroup 
-                  label="Phone Number" 
-                  value={credentials.twilioPhone} 
-                  onChange={(v) => updateCredential('twilioPhone', v)} 
-                  placeholder="+1..." 
-                />
-              </div>
-            </div>
-
-            {/* Africa's Talking Section */}
-            <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
-                  <Globe className="w-4 h-4" />
-                </div>
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Africa's Talking (Kenya)</h3>
-              </div>
-              <div className="space-y-4">
-                <InputGroup 
-                  label="Username" 
-                  value={credentials.atUsername} 
-                  onChange={(v) => updateCredential('atUsername', v)} 
-                  placeholder="sandbox" 
-                />
-                <InputGroup 
-                  label="API Key" 
-                  value={credentials.atApiKey} 
-                  onChange={(v) => updateCredential('atApiKey', v)} 
-                  placeholder="at_..." 
-                  type="password"
-                />
-                <InputGroup 
-                  label="Phone Number" 
-                  value={credentials.atPhone} 
-                  onChange={(v) => updateCredential('atPhone', v)} 
-                  placeholder="+254..." 
-                />
-              </div>
-            </div>
-
-            {/* Google Maps Section */}
-            <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                  <Map className="w-4 h-4" />
-                </div>
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Google Maps Platform</h3>
-              </div>
-              <div className="space-y-4">
-                <InputGroup 
-                  label="Maps API Key" 
-                  value={credentials.mapsApiKey} 
-                  onChange={(v) => updateCredential('mapsApiKey', v)} 
-                  placeholder="AIza..." 
-                  type="password"
-                />
-                <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed">
-                  Required for high-precision local scouting and business dossier generation.
-                </p>
-              </div>
-            </div>
-
-            {/* Info Section */}
-            <div className="p-8 bg-emerald-950 rounded-[2.5rem] text-white space-y-6 relative overflow-hidden">
-              <div className="absolute -bottom-10 -right-10 opacity-10">
-                <ShieldCheck className="w-48 h-48" />
-              </div>
-              <div className="relative z-10 space-y-4">
-                <h3 className="text-lg font-black uppercase tracking-tight">Security Note</h3>
-                <p className="text-xs font-medium text-emerald-200/60 leading-relaxed">
-                  Credentials saved here are stored in your browser's local storage for immediate use. For production environments, we recommend setting these as environment variables in your deployment dashboard.
-                </p>
-                <div className="flex items-center gap-2 text-[10px] font-black text-emerald-400 uppercase tracking-widest">
-                  <Lock className="w-3 h-3" />
-                  <span>AES-256 Local Encryption Active</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
-          <div className="p-8 bg-slate-50 rounded-[2rem] space-y-4 border border-slate-100">
-            <Lock className="w-6 h-6 text-slate-400" />
-            <h4 className="text-xs font-black uppercase tracking-widest text-slate-900">Security Protocol</h4>
-            <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed">
-              Keys are never stored on-disk. The authorization occurs via the secure AI Studio bridge, ensuring your project credentials remain private and localized.
-            </p>
+        {/* Google Ecosystem - Unified */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-3 px-2">
+            <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Google Ecosystem (Multi-Key Failover)</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Gemini / Search / Voice</span>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => updateCredentialList('geminiKeys', [...credentials.geminiKeys, ''])}
+                    className="p-2 hover:bg-white rounded-lg transition-all text-slate-400 hover:text-emerald-600" title="Add Key"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                  <button onClick={() => deleteCredential('geminiKeys')} className="p-2 hover:bg-white rounded-lg transition-all text-slate-400 hover:text-red-600" title="Delete All">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                {credentials.geminiKeys.map((key, idx) => (
+                  <div key={idx} className="space-y-2">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <InputGroup 
+                          value={key} 
+                          onChange={(v) => {
+                            const newList = [...credentials.geminiKeys];
+                            newList[idx] = v;
+                            updateCredentialList('geminiKeys', newList);
+                          }} 
+                          placeholder={`Gemini Key ${idx + 1}`} 
+                          type="password"
+                        />
+                      </div>
+                      <button 
+                        onClick={() => handleValidate(key)}
+                        className="px-3 bg-white border border-slate-200 rounded-xl hover:border-emerald-500 transition-all"
+                      >
+                        <RefreshCw className="w-3 h-3 text-slate-400" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const newList = credentials.geminiKeys.filter((_, i) => i !== idx);
+                          updateCredentialList('geminiKeys', newList);
+                        }}
+                        className="px-3 bg-white border border-slate-200 rounded-xl hover:border-red-500 transition-all"
+                      >
+                        <Trash2 className="w-3 h-3 text-slate-400" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {credentials.geminiKeys.length === 0 && (
+                  <button 
+                    onClick={() => updateCredentialList('geminiKeys', [''])}
+                    className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:border-emerald-500 hover:text-emerald-500 transition-all"
+                  >
+                    + Add Gemini Key
+                  </button>
+                )}
+              </div>
+
+              {validationResult && (
+                <div className={`text-[9px] font-bold uppercase flex items-center gap-2 ${validationResult.valid ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {validationResult.valid ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                  {validationResult.message}
+                </div>
+              )}
+              <div className="pt-2">
+                <button 
+                  onClick={handleAuthorize}
+                  className="w-full py-3 bg-white border border-slate-200 hover:border-emerald-500 text-slate-600 hover:text-emerald-600 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                >
+                  <Key className="w-3 h-3" />
+                  {isAuthorized ? 'Platform Auth Linked' : 'Link Platform Auth'}
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Google Maps (Local Data)</span>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => updateCredentialList('mapsApiKeys', [...credentials.mapsApiKeys, ''])}
+                    className="p-2 hover:bg-white rounded-lg transition-all text-slate-400 hover:text-blue-600" title="Add Key"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                  <button onClick={() => deleteCredential('mapsApiKeys')} className="p-2 hover:bg-white rounded-lg transition-all text-slate-400 hover:text-red-600" title="Delete All">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {credentials.mapsApiKeys.map((key, idx) => (
+                  <div key={idx} className="space-y-2">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <InputGroup 
+                          value={key} 
+                          onChange={(v) => {
+                            const newList = [...credentials.mapsApiKeys];
+                            newList[idx] = v;
+                            updateCredentialList('mapsApiKeys', newList);
+                          }} 
+                          placeholder={`Maps Key ${idx + 1}`} 
+                          type="password"
+                        />
+                      </div>
+                      <button 
+                        onClick={() => handleValidateMaps(key)}
+                        className="px-3 bg-white border border-slate-200 rounded-xl hover:border-blue-500 transition-all"
+                      >
+                        <RefreshCw className="w-3 h-3 text-slate-400" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const newList = credentials.mapsApiKeys.filter((_, i) => i !== idx);
+                          updateCredentialList('mapsApiKeys', newList);
+                        }}
+                        className="px-3 bg-white border border-slate-200 rounded-xl hover:border-red-500 transition-all"
+                      >
+                        <Trash2 className="w-3 h-3 text-slate-400" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {credentials.mapsApiKeys.length === 0 && (
+                  <button 
+                    onClick={() => updateCredentialList('mapsApiKeys', [''])}
+                    className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-all"
+                  >
+                    + Add Maps Key
+                  </button>
+                )}
+              </div>
+
+              {mapsResult && (
+                <div className={`text-[9px] font-bold uppercase flex items-center gap-2 ${mapsResult.valid ? 'text-blue-600' : 'text-red-600'}`}>
+                  {mapsResult.valid ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                  {mapsResult.message}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Communication Bridges */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-3 px-2">
+            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+              <Phone className="w-4 h-4" />
+            </div>
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Communication Bridges</h3>
           </div>
 
-          <div className="p-8 bg-slate-50 rounded-[2rem] space-y-4 border border-slate-100">
-            <Activity className="w-6 h-6 text-slate-400" />
-            <h4 className="text-xs font-black uppercase tracking-widest text-slate-900">Grounding Status</h4>
-            <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed">
-              Google Maps grounding is enabled for the Scout tab. Gemini 3 Pro reasoning is utilized for strategic dossier assembly in the Data tab.
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Twilio (Global)</span>
+                <button onClick={() => {
+                  deleteCredential('twilioSid');
+                  deleteCredential('twilioToken');
+                  deleteCredential('twilioPhone');
+                }} className="p-2 hover:bg-white rounded-lg transition-all text-slate-400 hover:text-red-600" title="Delete All">
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-3">
+                <InputGroup value={credentials.twilioSid} onChange={(v) => updateCredential('twilioSid', v)} placeholder="Account SID" type="password" />
+                <InputGroup value={credentials.twilioToken} onChange={(v) => updateCredential('twilioToken', v)} placeholder="Auth Token" type="password" />
+                <InputGroup value={credentials.twilioPhone} onChange={(v) => updateCredential('twilioPhone', v)} placeholder="Phone Number" />
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Africa's Talking (Kenya)</span>
+                <button onClick={() => {
+                  deleteCredential('atUsername');
+                  deleteCredential('atApiKey');
+                  deleteCredential('atPhone');
+                }} className="p-2 hover:bg-white rounded-lg transition-all text-slate-400 hover:text-red-600" title="Delete All">
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-3">
+                <InputGroup value={credentials.atUsername} onChange={(v) => updateCredential('atUsername', v)} placeholder="Username" />
+                <InputGroup value={credentials.atApiKey} onChange={(v) => updateCredential('atApiKey', v)} placeholder="API Key" type="password" />
+                <InputGroup value={credentials.atPhone} onChange={(v) => updateCredential('atPhone', v)} placeholder="Phone Number" />
+              </div>
+            </div>
           </div>
+        </section>
+
+        {/* Advanced Add-ons */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-3 px-2">
+            <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
+              <Zap className="w-4 h-4" />
+            </div>
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Advanced Add-ons (Multi-Key Failover)</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">ElevenLabs (Realistic Voice)</span>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => updateCredentialList('elevenLabsKeys', [...credentials.elevenLabsKeys, ''])}
+                    className="p-2 hover:bg-white rounded-lg transition-all text-slate-400 hover:text-purple-600" title="Add Key"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                  <button onClick={() => deleteCredential('elevenLabsKeys')} className="p-2 hover:bg-white rounded-lg transition-all text-slate-400 hover:text-red-600" title="Delete All">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                {credentials.elevenLabsKeys.map((key, idx) => (
+                  <div key={idx} className="space-y-2">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <InputGroup 
+                          value={key} 
+                          onChange={(v) => {
+                            const newList = [...credentials.elevenLabsKeys];
+                            newList[idx] = v;
+                            updateCredentialList('elevenLabsKeys', newList);
+                          }} 
+                          placeholder={`ElevenLabs Key ${idx + 1}`} 
+                          type="password"
+                        />
+                      </div>
+                      <button 
+                        onClick={() => handleValidateEleven(key)}
+                        className="px-3 bg-white border border-slate-200 rounded-xl hover:border-purple-500 transition-all"
+                      >
+                        <RefreshCw className="w-3 h-3 text-slate-400" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const newList = credentials.elevenLabsKeys.filter((_, i) => i !== idx);
+                          updateCredentialList('elevenLabsKeys', newList);
+                        }}
+                        className="px-3 bg-white border border-slate-200 rounded-xl hover:border-red-500 transition-all"
+                      >
+                        <Trash2 className="w-3 h-3 text-slate-400" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {credentials.elevenLabsKeys.length === 0 && (
+                  <button 
+                    onClick={() => updateCredentialList('elevenLabsKeys', [''])}
+                    className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:border-purple-500 hover:text-purple-500 transition-all"
+                  >
+                    + Add ElevenLabs Key
+                  </button>
+                )}
+              </div>
+
+              {elevenResult && (
+                <div className={`text-[9px] font-bold uppercase flex items-center gap-2 ${elevenResult.valid ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {elevenResult.valid ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                  {elevenResult.message}
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Serper (Deep Search)</span>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => updateCredentialList('serperKeys', [...credentials.serperKeys, ''])}
+                    className="p-2 hover:bg-white rounded-lg transition-all text-slate-400 hover:text-emerald-600" title="Add Key"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                  <button onClick={() => deleteCredential('serperKeys')} className="p-2 hover:bg-white rounded-lg transition-all text-slate-400 hover:text-red-600" title="Delete All">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {credentials.serperKeys.map((key, idx) => (
+                  <div key={idx} className="space-y-2">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <InputGroup 
+                          value={key} 
+                          onChange={(v) => {
+                            const newList = [...credentials.serperKeys];
+                            newList[idx] = v;
+                            updateCredentialList('serperKeys', newList);
+                          }} 
+                          placeholder={`Serper Key ${idx + 1}`} 
+                          type="password"
+                        />
+                      </div>
+                      <button 
+                        onClick={() => handleValidateSerper(key)}
+                        className="px-3 bg-white border border-slate-200 rounded-xl hover:border-emerald-500 transition-all"
+                      >
+                        <RefreshCw className="w-3 h-3 text-slate-400" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const newList = credentials.serperKeys.filter((_, i) => i !== idx);
+                          updateCredentialList('serperKeys', newList);
+                        }}
+                        className="px-3 bg-white border border-slate-200 rounded-xl hover:border-red-500 transition-all"
+                      >
+                        <Trash2 className="w-3 h-3 text-slate-400" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {credentials.serperKeys.length === 0 && (
+                  <button 
+                    onClick={() => updateCredentialList('serperKeys', [''])}
+                    className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:border-emerald-500 hover:text-emerald-500 transition-all"
+                  >
+                    + Add Serper Key
+                  </button>
+                )}
+              </div>
+
+              {serperResult && (
+                <div className={`text-[9px] font-bold uppercase flex items-center gap-2 ${serperResult.valid ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {serperResult.valid ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                  {serperResult.message}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Search Engine Selection */}
+        <section className="p-8 bg-slate-950 rounded-[3rem] text-white space-y-6">
+          <div className="flex items-center gap-3">
+            <Search className="w-5 h-5 text-emerald-400" />
+            <h3 className="text-lg font-black uppercase tracking-tight">Search Protocol</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button 
+              onClick={() => {
+                setSearchEngine('gemini');
+                localStorage.setItem('nexus_search_engine', 'gemini');
+              }}
+              className={`p-6 rounded-2xl border transition-all text-left space-y-2 ${searchEngine === 'gemini' ? 'bg-emerald-600 border-emerald-500 shadow-xl' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-widest">Gemini Grounding</span>
+                {searchEngine === 'gemini' && <CheckCircle className="w-4 h-4" />}
+              </div>
+              <p className="text-[10px] font-medium text-white/60">Uses your Gemini key for real-time web search. Free & Integrated.</p>
+            </button>
+            <button 
+              onClick={() => {
+                setSearchEngine('serper');
+                localStorage.setItem('nexus_search_engine', 'serper');
+              }}
+              className={`p-6 rounded-2xl border transition-all text-left space-y-2 ${searchEngine === 'serper' ? 'bg-emerald-600 border-emerald-500 shadow-xl' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-widest">Serper (Deep)</span>
+                {searchEngine === 'serper' && <CheckCircle className="w-4 h-4" />}
+              </div>
+              <p className="text-[10px] font-medium text-white/60">Uses Serper.dev for high-fidelity lead discovery. Requires Serper Key.</p>
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="p-8 bg-slate-50 rounded-[2rem] space-y-4 border border-slate-100">
+          <Lock className="w-6 h-6 text-slate-400" />
+          <h4 className="text-xs font-black uppercase tracking-widest text-slate-900">Security Protocol</h4>
+          <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed">
+            Keys are never stored on-disk. The authorization occurs via the secure AI Studio bridge, ensuring your project credentials remain private and localized.
+          </p>
+        </div>
+
+        <div className="p-8 bg-slate-50 rounded-[2rem] space-y-4 border border-slate-100">
+          <Activity className="w-6 h-6 text-slate-400" />
+          <h4 className="text-xs font-black uppercase tracking-widest text-slate-900">Grounding Status</h4>
+          <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed">
+            Google Maps grounding is enabled for the Scout tab. Gemini 3 Pro reasoning is utilized for strategic dossier assembly in the Data tab.
+          </p>
         </div>
       </div>
     </div>
@@ -389,14 +692,24 @@ const StatusCard = ({ icon: Icon, label, status, color }: any) => {
 
 const InputGroup = ({ label, value, onChange, placeholder, type = 'text' }: any) => (
   <div className="space-y-2">
-    <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">{label}</label>
-    <input 
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="w-full h-12 px-4 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-slate-300"
-    />
+    {label && <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">{label}</label>}
+    <div className="relative">
+      <input 
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full h-12 px-4 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-slate-300 pr-10"
+      />
+      {value && (
+        <button 
+          onClick={() => onChange('')}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors"
+        >
+          <Trash2 className="w-3 h-3" />
+        </button>
+      )}
+    </div>
   </div>
 );
 

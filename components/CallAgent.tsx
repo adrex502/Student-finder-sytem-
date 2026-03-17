@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Lead, Project } from '../types';
 import { synthesizeSpeech } from '../services/gemini';
+import { synthesizeElevenLabs } from '../services/elevenlabs';
 import { base64ToUint8Array, decodeAudioData } from '../utils/audioUtils';
 
 interface CallAgentProps {
@@ -39,6 +40,9 @@ const CallAgent: React.FC<CallAgentProps> = ({ selectedVoice, setSelectedVoice, 
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [customText, setCustomText] = useState("");
   const [isSynthesizing, setIsSynthesizing] = useState(false);
+  const [engine, setEngine] = useState<'gemini' | 'elevenlabs'>(() => {
+    return (localStorage.getItem('nexus_voice_engine') as 'gemini' | 'elevenlabs') || 'gemini';
+  });
   const [error, setError] = useState<string | null>(null);
   const [audioStatus, setAudioStatus] = useState<'idle' | 'testing' | 'active' | 'error'>('idle');
   const [hasKey, setHasKey] = useState<boolean>(true);
@@ -120,7 +124,10 @@ const CallAgent: React.FC<CallAgentProps> = ({ selectedVoice, setSelectedVoice, 
     setError(null);
 
     try {
-      const base64Audio = await synthesizeSpeech(text, voiceId);
+      const base64Audio = engine === 'gemini' 
+        ? await synthesizeSpeech(text, voiceId)
+        : await synthesizeElevenLabs(text, voiceId);
+        
       const audioCtx = await initAudio();
       
       const uint8 = base64ToUint8Array(base64Audio);
@@ -238,6 +245,30 @@ const CallAgent: React.FC<CallAgentProps> = ({ selectedVoice, setSelectedVoice, 
       <div className="min-h-[500px]">
         {currentStep === 'identity' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-500">
+            {/* Engine Selection */}
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full max-w-md mx-auto">
+              <button 
+                onClick={() => {
+                  setEngine('gemini');
+                  localStorage.setItem('nexus_voice_engine', 'gemini');
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engine === 'gemini' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <Zap className="w-3 h-3" />
+                Gemini Neural (Fast)
+              </button>
+              <button 
+                onClick={() => {
+                  setEngine('elevenlabs');
+                  localStorage.setItem('nexus_voice_engine', 'elevenlabs');
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engine === 'elevenlabs' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <Sparkles className="w-3 h-3" />
+                ElevenLabs (Realistic)
+              </button>
+            </div>
+
             {/* Active Profile Card */}
             <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white flex flex-col md:flex-row items-center justify-between gap-8 border border-white/5 shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-emerald-500/10 to-transparent pointer-events-none" />
